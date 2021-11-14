@@ -5,6 +5,7 @@ type Config struct {
 	AccessKeyID     string
 	SecretAccessKey string
 	BucketName      string
+	BucketPrefix    string
 	Region          string
 	Endpoint        string
 	Mounter         string

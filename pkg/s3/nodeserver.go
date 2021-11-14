@@ -95,8 +95,6 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 	if bucketName != "" {
 		volumeID = bucketName
-	} else {
-		return nil, status.Error(codes.InvalidArgument, "bucket Name missing in request")
 	}
 	meta, err := s3.getMetadata(volumeID)
 	if err != nil {
@@ -168,8 +166,6 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	}
 	if bucketName != "" {
 		volumeID = bucketName
-	} else {
-		return nil, status.Error(codes.InvalidArgument, "bucket Name missing in request")
 	}
 	meta, err := s3.getMetadata(volumeID)
 	if err != nil {

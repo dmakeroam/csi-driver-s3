@@ -20,9 +20,10 @@ const (
 )
 
 type s3Client struct {
-	cfg        *Config
-	minio      *minio.Client
-	bucketName *string
+	cfg          *Config
+	minio        *minio.Client
+	bucketName   *string
+	bucketPrefix *string
 }
 
 type metadata struct {
@@ -59,6 +60,7 @@ func newS3Client(cfg *Config) (*s3Client, error) {
 	}
 	client.minio = minioClient
 	client.bucketName = &cfg.BucketName
+	client.bucketPrefix = &cfg.BucketPrefix
 	return client, nil
 }
 
@@ -67,6 +69,7 @@ func newS3ClientFromSecrets(secrets map[string]string) (*s3Client, error) {
 		AccessKeyID:     secrets["accessKeyID"],
 		SecretAccessKey: secrets["secretAccessKey"],
 		BucketName:      secrets["bucketName"],
+		BucketPrefix:    secrets["bucketPrefix"],
 		Region:          secrets["region"],
 		Endpoint:        secrets["endpoint"],
 		// Mounter is set in the volume preferences, not secrets
@@ -127,6 +130,10 @@ func (client *s3Client) removeBucket(bucketName string) error {
 }
 
 func (client *s3Client) emptyBucket(bucketName string) error {
+	assignedFsPrefix := fsPrefix
+	if client != nil && client.bucketPrefix != nil {
+		assignedFsPrefix = *client.bucketPrefix
+	}
 	objectsCh := make(chan minio.ObjectInfo)
 	var listErr error
 
@@ -156,7 +163,7 @@ func (client *s3Client) emptyBucket(bucketName string) error {
 	}
 
 	// ensure our prefix is also removed
-	return client.minio.RemoveObject(context.Background(), bucketName, fsPrefix, minio.RemoveObjectOptions{})
+	return client.minio.RemoveObject(context.Background(), bucketName, assignedFsPrefix, minio.RemoveObjectOptions{})
 }
 
 func (client *s3Client) metadataExist(bucketName string) bool {

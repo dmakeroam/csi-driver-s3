@@ -55,14 +55,12 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, err
 	}
 
-	volumeID := ""
+	volumeID := req.GetName()
 	// Check arguments
 	if bucketName != "" {
 		volumeID = bucketName
 	}
 	if len(volumeID) == 0 {
-		volumeID = req.GetName()
-	} else {
 		return nil, status.Error(codes.InvalidArgument, "name missing in request")
 	}
 	if req.GetVolumeCapabilities() == nil {
@@ -96,17 +94,12 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize S3 client: %w", err)
 	}
-	volumeID := ""
-
+	volumeID := req.GetVolumeId()
 	// Check arguments
 	if bucketName != "" {
 		volumeID = bucketName
-	} else {
-		return nil, status.Error(codes.InvalidArgument, "bucket Name missing in request")
 	}
 	if len(volumeID) == 0 {
-		volumeID = req.GetVolumeId()
-	} else {
 		return nil, status.Error(codes.InvalidArgument, "volume ID missing in request")
 	}
 
@@ -196,6 +189,11 @@ func ensureBucketWithMetadata(volumeID string, secrets map[string]string, capaci
 	if err != nil {
 		return fmt.Errorf("failed to initialize S3 client: %w", err)
 	}
+	assignedFsPrefix := fsPrefix
+	if s3 != nil && s3.bucketPrefix != nil {
+		assignedFsPrefix = *s3.bucketPrefix
+	}
+
 	exists, err := s3.bucketExists(volumeID)
 	if err != nil {
 		return fmt.Errorf("failed to check if bucket %s exists: %w", volumeID, err)
@@ -206,7 +204,7 @@ func ensureBucketWithMetadata(volumeID string, secrets map[string]string, capaci
 			b := &metadata{
 				Name:          volumeID,
 				CapacityBytes: capacityBytes,
-				FSPath:        fsPrefix,
+				FSPath:        assignedFsPrefix,
 			}
 			if err := s3.writeMetadata(b); err != nil {
 				return fmt.Errorf("error setting volume metadata: %w", err)
@@ -224,13 +222,13 @@ func ensureBucketWithMetadata(volumeID string, secrets map[string]string, capaci
 		if err = s3.createBucket(volumeID); err != nil {
 			return fmt.Errorf("failed to create bucket for volume %s: %w", volumeID, err)
 		}
-		if err = s3.createPrefix(volumeID, fsPrefix); err != nil {
-			return fmt.Errorf("failed to create prefix %s for volume %s: %w", fsPrefix, volumeID, err)
+		if err = s3.createPrefix(volumeID, assignedFsPrefix); err != nil {
+			return fmt.Errorf("failed to create prefix %s for volume %s: %w", assignedFsPrefix, volumeID, err)
 		}
 		meta := &metadata{
 			Name:          volumeID,
 			CapacityBytes: capacityBytes,
-			FSPath:        fsPrefix,
+			FSPath:        assignedFsPrefix,
 		}
 		if err := s3.writeMetadata(meta); err != nil {
 			return fmt.Errorf("error setting volume metadata: %w", err)
